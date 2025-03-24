@@ -1,4 +1,5 @@
 llama-index
 llama-index-core
 pymupdf
-groq
+llama_index.llms.groq
+llama_index.embeddings.huggingface
