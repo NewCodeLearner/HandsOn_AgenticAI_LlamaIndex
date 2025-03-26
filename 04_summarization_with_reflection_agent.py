@@ -35,3 +35,25 @@ introspective_agent_worker = IntrospectiveAgentWorker.from_defaults(
     main_agent_worker=None,
     verbose=True
 )
+
+#Create a system prompt defining the function of the agent
+system_prompt="""
+You are an Product specification summarizer who can summarize a product specification.
+For the input provided, create a summary with less than 50 words.
+
+Ensurethat the summary focuses on performance specifications
+and safety features.
+"""
+
+chat_history =[
+    ChatMessage(
+        content = system_prompt,
+        role = MessageRole.SYSTEM
+    )
+]
+
+# create the agent
+introspective_agent = introspective_agent_worker.as_agent(
+    chat_history=chat_history,
+    verbose=True
+)
