@@ -22,6 +22,24 @@ wiki_spec = WikipediaToolSpec()
 tool = wiki_spec.to_tool_list()[1]
 wiki_tools = LoadAndSearchToolSpec.from_defaults(tool).to_tool_list()
 
-#Review the list of tools
+# Review the list of tools
 for tool in wiki_tools:
     print( "--------\n",tool.metadata.name, tool.metadata.description)
+
+# Set up RAG for medications
+medication_document =JSONReader().load_data(
+    input_file='data/Medications and dosages.json'
+)
+
+splitter = SentenceSplitter(chunk_size=256)
+nodes = splitter.get_nodes_from_documents(medication_document)
+medication_index = VectorStoreIndex.from_documents(nodes)
+
+# Create a query engine tool based on the CSV file
+medication_query_engine = medication_index.as_query_engine()
+medication_tool = QueryEngineTool.from_defaults(
+    query_engine=medication_query_engine,
+    description=(
+        "Provides list of popular medications, diseases they are used to treat for and recommended dosages"
+    )
+    )
