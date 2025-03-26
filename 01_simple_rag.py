@@ -15,7 +15,7 @@ Settings.llm = Groq(model = "llama-3.3-70b-versatile" , api_key = GROQ_API_KEY)
 Settings.embed_model = HuggingFaceEmbedding(model_name='BAAI/bge-small-en-v1.5')
 
 
-documents = SimpleDirectoryReader('data/').load_data()
+documents = SimpleDirectoryReader(input_files=['data/whitepaper.pdf']).load_data()
 print('documents created')
 
 text_splitter = SentenceSplitter(chunk_size =1024)
