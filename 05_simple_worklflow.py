@@ -13,7 +13,7 @@ from llama_index.core.workflow import (
 nest_asyncio.apply()
 
 from llama_index.utils.workflow import draw_all_possible_flows
-from typing import Any
+from typing import Any,Union
 
 # Define custom ValidateEvent that inherits from Event
 class ValidateEvent(Event):
@@ -42,7 +42,8 @@ class SimpleWorkflow(Workflow):
     @step
     async def runLoop(self,
                       ctx:Context,
-                      event:StartEvent | ContinueEvent) -> ValidateEvent:
+                      event:Union[StartEvent, ContinueEvent] # UNION :I am using python 3.9 , The | operator is valid for standard Python types in Python 3.10+ (e.g., int | str), or custom classes that don't have metaclasses
+                      ) -> ValidateEvent :
         # If StartEvent , initialize the variables
         if isinstance(event,StartEvent):
             iterations = 0
@@ -69,7 +70,7 @@ class SimpleWorkflow(Workflow):
     @step
     async def checkIterations(self,
                               ctx:Context,
-                              event:ValidateEvent) -> StopEvent | ContinueEvent:
+                              event:ValidateEvent) -> Union[StopEvent, ContinueEvent]:
         #Read current iteration count from event
         iterations =event.iterations
         #Read max iterations from instance variable
@@ -85,5 +86,11 @@ class SimpleWorkflow(Workflow):
         else:
             #Return continue event with current iteration count
             return ContinueEvent(iterations=iterations)
+        
+#Draw a workflow graph.
+SimpleWorkFlow = SimpleWorkflow(max_iterations=0)
+draw_all_possible_flows(SimpleWorkFlow, filename="SimpleWorkflow.html")
+
+
 
 
