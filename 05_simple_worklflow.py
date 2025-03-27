@@ -65,3 +65,25 @@ class SimpleWorkflow(Workflow):
 
         #Return validate event, with current value of iterations
         return ValidateEvent(iterations=iterations)
+    
+    @step
+    async def checkIterations(self,
+                              ctx:Context,
+                              event:ValidateEvent) -> StopEvent | ContinueEvent:
+        #Read current iteration count from event
+        iterations =event.iterations
+        #Read max iterations from instance variable
+        max_iterations = self.max_iterations
+        #Read current result from context and print details
+        current_result = await ctx.get("current_result")
+
+        print(f"*** Current iteration to validate :{iterations} {max_iterations}")
+        #Perform check if max iterations is reached.
+        if iterations > max_iterations:
+            #Return stop event if max iterations is reached, with current result
+            return StopEvent(result=current_result)
+        else:
+            #Return continue event with current iteration count
+            return ContinueEvent(iterations=iterations)
+
+
