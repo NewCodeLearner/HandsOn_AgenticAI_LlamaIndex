@@ -88,9 +88,50 @@ class SimpleWorkflow(Workflow):
             return ContinueEvent(iterations=iterations)
         
 #Draw a workflow graph.
-SimpleWorkFlow = SimpleWorkflow(max_iterations=0)
-draw_all_possible_flows(SimpleWorkFlow, filename="SimpleWorkflow.html")
+#SimpleWorkFlow = SimpleWorkflow(max_iterations=0)
+#draw_all_possible_flows(SimpleWorkFlow, filename="SimpleWorkflow.html")
 
 
+# Create a workflow
+workflowObj = SimpleWorkflow(
+    timeout = 10,
+    verbose = True,
+    max_iterations=3
+)
+
+#Execute the workflow with async
+async def main():
+    result = await workflowObj.run()
+    print(result)
+
+asyncio.run(main())
 
 
+#************************************************************
+# ACTUAL OUPUT OF WORKFLOW
+#************************************************************
+# Running step runLoop
+# *** Iteration : 1 3
+# Step runLoop produced event ValidateEvent
+# Running step checkIterations
+# *** Current iteration to validate :1 3
+# Step checkIterations produced event ContinueEvent
+# Running step runLoop
+# *** Iteration : 2 3
+# Step runLoop produced event ValidateEvent
+# Running step checkIterations
+# *** Current iteration to validate :2 3
+# Step checkIterations produced event ContinueEvent
+# Running step runLoop
+# *** Iteration : 3 3
+# Step runLoop produced event ValidateEvent
+# Running step checkIterations
+# *** Current iteration to validate :3 3
+# Step checkIterations produced event ContinueEvent
+# Running step runLoop
+# *** Iteration : 4 3
+# Step runLoop produced event ValidateEvent
+# Running step checkIterations
+# *** Current iteration to validate :4 3
+# Step checkIterations produced event StopEvent
+# *** Iteration : 4 3
