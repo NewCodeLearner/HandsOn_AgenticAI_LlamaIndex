@@ -244,9 +244,9 @@ class SchedulingAgent(Workflow):
                 # call the tool
                 tool_output = tool(**tool_call.tool_kwargs)
                 self.sources.append(tool_output)
-                (await ctx.get("current_reasoning",default=[]).append(
+                (await ctx.get("current_reasoning",default=[])).append(
                     ObservationReasoningStep(observation=tool_output.content)
-                ))
+                )
             except Exception as e:
                 (await ctx.get("current_reasoning", default=[])).append(
                     ObservationReasoningStep(
@@ -263,4 +263,121 @@ class SchedulingAgent(Workflow):
 #List of tools
 scheduling_tools=[doctor_tool, schedule_appointment_tool]
 
+context = """
+You are a doctor scheduling assistant. You allow patients to search
+for list of doctors by speciality. When a patient requests an appointement
+with a specific doctor, you will also email the doctor with an appointment 
+request.
 
+Use doctors tool to search for doctor by disease / specialization, get 
+their information including email ID.
+
+To setup an appointment, use the schedule_appointment function passing in the 
+required parameters captured from user input.
+
+Use only the tools provided to answer questions and NOT your own memory.
+
+"""
+
+# Create the workflow agent
+scheduling_agent = SchedulingAgent(
+    llm = Settings.llm,
+    tools = scheduling_tools,
+    extra_context = context,
+    timeout = 120,
+    verbose = True
+)
+
+# wrapping your await statement within an async function and using asyncio.run() is required. 
+# Python scripts don't automatically start an event loop, so you need asyncio.run() to create and manage the event loop for your asynchronous code.
+
+#Example-1
+#async def main():
+#    response=await scheduling_agent.run(input="Which doctors are cardiologists?")
+#    print("*******\n Response : ",response.get("response"))
+
+#asyncio.run(main())
+
+
+#*****************************************************
+# ACTUAL RESPONSE FROM AGENT
+#*****************************************************
+# Running step new_user_msg
+# Step new_user_msg produced event PrepEvent
+# Running step prepare_chat_history
+# Step prepare_chat_history produced event InputEvent
+# Running step handle_llm_input
+# *** LLM Returned :  thought='The current language of the user is: English. I need to use a tool to help me answer the question.' action='query_engine_tool' action_input={'input': 'cardiologists'}
+# Step handle_llm_input produced event ToolCallEvent
+# Running step handle_tool_calls
+# *** Calling tools :  [ToolSelection(tool_id='fake', tool_name='query_engine_tool', tool_kwargs={'input': 'cardiologists'})]
+# Step handle_tool_calls produced event PrepEvent
+# Running step prepare_chat_history
+# Step prepare_chat_history produced event InputEvent
+# Running step handle_llm_input
+# *** LLM Returned :  thought="I have the information about the cardiologist, but I don't have the name of the doctor. I need to use the query_engine_tool to get the list of doctors and find the cardiologist." action='query_engine_tool' action_input={'input': 'cardiologist'}
+# Step handle_llm_input produced event ToolCallEvent
+# Running step handle_tool_calls
+# *** Calling tools :  [ToolSelection(tool_id='fake', tool_name='query_engine_tool', tool_kwargs={'input': 'cardiologist'})]
+# Step handle_tool_calls produced event PrepEvent
+# Running step prepare_chat_history
+# Step prepare_chat_history produced event InputEvent
+# Running step handle_llm_input
+# *** LLM Returned :  thought='I can answer without using any more tools. I have the name of the cardiologist.' response='Dr. John Smith is a cardiologist with 15 years 
+# of experience.' is_streaming=False
+# Step handle_llm_input produced event StopEvent
+# *******
+#  Response :  Dr. John Smith is a cardiologist with 15 years of experience.
+
+#Example-2
+
+async def main():
+    response=await scheduling_agent.run(input="Please setup an appointment with John Smith for Ben Jones next week in the afternoons")
+    print("*******\n Response : ",response.get("response"))
+
+asyncio.run(main())
+
+#****************************
+# RESPONSE
+#****************************
+# Running step new_user_msg
+# Step new_user_msg produced event PrepEvent
+# Running step prepare_chat_history
+# Step prepare_chat_history produced event InputEvent
+# Running step handle_llm_input
+# *** LLM Returned :  thought="The current language of the user is: English. I need to use the query_engine_tool to find a doctor that matches the user's request, then use the schedule_appointment tool to setup the appointment." action='query_engine_tool' action_input={'input': 'doctors available next week in the afternoons'}
+# Step handle_llm_input produced event ToolCallEvent
+# Running step handle_tool_calls
+# *** Calling tools :  [ToolSelection(tool_id='fake', tool_name='query_engine_tool', tool_kwargs={'input': 'doctors available next week in the afternoons'})]
+# Step handle_tool_calls produced event PrepEvent
+# Running step prepare_chat_history
+# Step prepare_chat_history produced event InputEvent
+# Running step handle_llm_input
+# *** LLM Returned :  thought='The user needs to setup an appointment with John Smith for Ben Jones next week in the afternoons. Since the query_engine_tool did not provide the specific availability of the doctors, I will try to find the email of the doctor to setup the appointment.' action='query_engine_tool' action_input={'input': 'John Smith doctor email and specialty'}
+# Step handle_llm_input produced event ToolCallEvent
+# Running step handle_tool_calls
+# *** Calling tools :  [ToolSelection(tool_id='fake', tool_name='query_engine_tool', tool_kwargs={'input': 'John Smith doctor email and specialty'})]
+# Step handle_tool_calls produced event PrepEvent
+# Running step prepare_chat_history
+# Step prepare_chat_history produced event InputEvent
+# Running step handle_llm_input
+# *** LLM Returned :  thought='The current language of the user is: English. I need to use the query_engine_tool to find the email of Dr. John Smith to setup the appointment.' action='query_engine_tool' action_input={'input': 'Dr. John Smith email'}
+# Step handle_llm_input produced event ToolCallEvent
+# Running step handle_tool_calls
+# *** Calling tools :  [ToolSelection(tool_id='fake', tool_name='query_engine_tool', tool_kwargs={'input': 'Dr. John Smith email'})]
+# Step handle_tool_calls produced event PrepEvent
+# Running step prepare_chat_history
+# Step prepare_chat_history produced event InputEvent
+# Running step handle_llm_input
+# *** LLM Returned :  thought="The current language of the user is: English. I have the name of the doctor and the patient, and some information about the doctor's specialty and experience. I can now use the schedule_appointment tool to setup the appointment, assuming that the email will be handled internally by the system." action='schedule_appointment' action_input={'patient_name': 'Ben Jones', 'doctor_name': 'John Smith', 'scheduling_comments': 'next week in the afternoons'}
+# Step handle_llm_input produced event ToolCallEvent
+# Running step handle_tool_calls
+# *** Calling tools :  [ToolSelection(tool_id='fake', tool_name='schedule_appointment', tool_kwargs={'patient_name': 'Ben Jones', 'doctor_name': 'John Smith', 'scheduling_comments': 'next week in the afternoons'})]
+# Step handle_tool_calls produced event PrepEvent
+# Running step prepare_chat_history
+# Step prepare_chat_history produced event InputEvent
+# Running step handle_llm_input
+# *** LLM Returned :  thought="I can answer without using any more tools. I'll use the user's language to answer" response='The appointment with Dr. John Smith for Ben Jones has been successfully setup for next week in the afternoons.' is_streaming=False
+# Step handle_llm_input produced event StopEvent
+# *******
+#  Response :  The appointment with Dr. John Smith for Ben Jones has been successfully setup for next week in the afternoons.
