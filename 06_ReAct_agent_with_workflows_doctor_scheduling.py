@@ -108,6 +108,7 @@ from llama_index.core.workflow import (
     StopEvent,
     step,
 )
+from llama_index.utils.workflow import draw_all_possible_flows
 
 #Preparation event for the request
 class PrepEvent(Event):
@@ -115,7 +116,7 @@ class PrepEvent(Event):
 
 #Input to the LLM
 class InputEvent(Event):
-    Input = list[ChatMessage]
+    input : list[ChatMessage]
 
 #Trigger tool calls
 class ToolCallEvent(Event):
@@ -206,7 +207,7 @@ class SchedulingAgent(Workflow):
                 return ToolCallEvent(
                     tool_calls=[
                     ToolSelection(
-                        tool_id = "dummy",
+                        tool_id = "fake",
                         tool_name = tool_name,
                         tool_kwargs = tool_args
                     )
@@ -222,15 +223,44 @@ class SchedulingAgent(Workflow):
         # if no tool calls or final response, iterate again
         return PrepEvent()
     
+    @step
+    async def handle_tool_calls(self, ctx : Context, ev : ToolCallEvent) -> PrepEvent:
+        tools_calls = ev.tool_calls
+        tools_by_name = {tool.metadata.get_name(): tool for tool in self.tools}
 
+        # call tools There may be multiple tool calls in a single step
+        print("*** Calling tools : ", tools_calls)
+        for tool_call in tools_calls:
+            tool = tools_by_name.get(tool_call.tool_name)
+            if not tool:
+                (await ctx.get("current_reasoning", default=[])).append(
+                    ObservationReasoningStep(
+                        observation=f"Tool {tool_call.tool_name} does not exist"
+                    )
+                )
+                continue
 
+            try:
+                # call the tool
+                tool_output = tool(**tool_call.tool_kwargs)
+                self.sources.append(tool_output)
+                (await ctx.get("current_reasoning",default=[]).append(
+                    ObservationReasoningStep(observation=tool_output.content)
+                ))
+            except Exception as e:
+                (await ctx.get("current_reasoning", default=[])).append(
+                    ObservationReasoningStep(
+                        observation=f"Error calling tool {tool.metadata.get_name()}: {e}"
+                    )
+                )    
+        # prep the next iteration.
+        return PrepEvent()
 
-
-
-
-
-# draw_all_possible_flows(SchedulingAgent, filename="scheduling_agent_flow.html")
-
+#draw_all_possible_flows(SchedulingAgent, filename="scheduling_agent_flow.html")
 
 # Create and execute the Scheduling Agent
+
+#List of tools
+scheduling_tools=[doctor_tool, schedule_appointment_tool]
+
 
