@@ -88,12 +88,89 @@ schedule_appointment_tool = FunctionTool.from_defaults(fn=schedule_appointment)
 
 
 # Setup custom events
+from llama_index.core.llms import ChatMessage
+from llama_index.core.tools import ToolSelection, ToolOutput
+from llama_index.core.workflow import Event
+from typing import Any, List
+
+from llama_index.core.agent.react import ReActChatFormatter, ReActOutputParser
+from llama_index.core.agent.react.types import (
+    ActionReasoningStep,
+    ObservationReasoningStep,
+)
+from llama_index.core.llms.llm import LLM
+from llama_index.core.memory import ChatMemoryBuffer
+from llama_index.core.tools.types import BaseTool
+from llama_index.core.workflow import (
+    Context,
+    Workflow,
+    StartEvent,
+    StopEvent,
+    step,
+)
+
+#Preparation event for the request
+class PrepEvent(Event):
+    pass
+
+#Input to the LLM
+class InputEvent(Event):
+    Input = list[ChatMessage]
+
+#Trigger tool calls
+class ToolCallEvent(Event):
+    tool_calls: list[ToolSelection]
 
 
+model =Settings.llm
 # Create the custom ReAct workflow
+class SchedulingAgent(Workflow):
+    def __init__(
+            self,
+            *args:Any,
+            llm: LLM ,
+            tools:list[BaseTool],
+            extra_context:str,
+            **kwargs:Any,
 
+    )-> None:
+        #call the parent class init
+        super().__init__(*args,**kwargs)
 
+        #copy input to instance varialbes
+        self.tools = tools
+        self.llm = Settings.llm
+        #setup memory to track request
+        self.memory = ChatMemoryBuffer.from_defaults(llm=Settings.llm)
+        self.formatter = ReActChatFormatter(context=extra_context or "")
+        self.output_parser = ReActOutputParser()
+        self.sources =[]
+    
+    @step
+    async def new_user_msg(self,ctx:Context, ev: StartEvent) -> PrepEvent:
+        #clear sources
+        self.sources =[]
 
+        # get user input
+        user_input = ev.input
+        user_msg = ChatMessage(role='user',content=user_input)
+        self.memory.put(user_msg)
+
+        # clear current reasoning since its a new request
+        await ctx.set("current_reasoning",[])
+
+        return PrepEvent()
+    
+    @step
+    async def prepare_chat_history(self,ctx:Context,ev:PrepEvent)-> InputEvent:
+        # get chat history & format input
+        chat_history = self.memory.get()
+        current_reasoning = await ctx.get("current_reasoning",default= [])
+        llm_input = self.formatter.format(
+            self.tools, chat_history,
+            current_reasoning=current_reasoning
+        )
+        return InputEvent(input=llm_input)
 
 
 # draw_all_possible_flows(SchedulingAgent, filename="scheduling_agent_flow.html")
