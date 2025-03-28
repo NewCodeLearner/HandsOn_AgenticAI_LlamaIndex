@@ -91,7 +91,7 @@ schedule_appointment_tool = FunctionTool.from_defaults(fn=schedule_appointment)
 from llama_index.core.llms import ChatMessage
 from llama_index.core.tools import ToolSelection, ToolOutput
 from llama_index.core.workflow import Event
-from typing import Any, List
+from typing import Any, List,Union
 
 from llama_index.core.agent.react import ReActChatFormatter, ReActOutputParser
 from llama_index.core.agent.react.types import (
@@ -147,7 +147,7 @@ class SchedulingAgent(Workflow):
         self.sources =[]
     
     @step
-    async def new_user_msg(self,ctx:Context, ev: StartEvent) -> PrepEvent:
+    async def new_user_msg(self, ctx:Context, ev:StartEvent) -> PrepEvent:
         #clear sources
         self.sources =[]
 
@@ -162,7 +162,7 @@ class SchedulingAgent(Workflow):
         return PrepEvent()
     
     @step
-    async def prepare_chat_history(self,ctx:Context,ev:PrepEvent)-> InputEvent:
+    async def prepare_chat_history(self, ctx:Context, ev:PrepEvent)-> InputEvent:
         # get chat history & format input
         chat_history = self.memory.get()
         current_reasoning = await ctx.get("current_reasoning",default= [])
@@ -171,6 +171,62 @@ class SchedulingAgent(Workflow):
             current_reasoning=current_reasoning
         )
         return InputEvent(input=llm_input)
+
+    @step
+    async def handle_llm_input(self, ctx:Context, ev:InputEvent) -> Union[ToolCallEvent,StopEvent]:
+        chat_history = ev.input
+
+        #Send prompt to LLM and get response
+        response = await self.llm.achat(chat_history)
+
+        #Analyze the response from LLM
+        try:
+            reasoning_step = self.output_parser.parse(response.message.content)
+            (await ctx.get("current_reasoning",default =[])).append(
+                reasoning_step
+            )
+            print("*** LLM Returned : " ,reasoning_step)
+
+            #If LLM returns ReACt is done
+            if reasoning_step.is_done:
+                self.memory.put( 
+                        ChatMessage( role ="assistant", content=reasoning_step.response) 
+                            )
+                return StopEvent(
+                    result ={
+                        "response": reasoning_step.response,
+                        "sources":[*self.sources],
+                        "reasoning": await ctx.get("current_reasoning",default =[])
+                    }
+                ) 
+            # If LLM says that tool calling is needed.
+            elif isinstance(reasoning_step,ActionReasoningStep):
+                tool_name = reasoning_step.action
+                tool_args = reasoning_step.action_input
+                return ToolCallEvent(
+                    tool_calls=[
+                    ToolSelection(
+                        tool_id = "dummy",
+                        tool_name = tool_name,
+                        tool_kwargs = tool_args
+                    )
+                    ]     
+                )
+                
+        except Exception as e:
+            (await ctx.get("current_reasoning", default=[])).append(
+                ObservationReasoningStep(
+                    observation=f"There was an error in parsing my reasoning: {e}"
+                )
+            )
+        # if no tool calls or final response, iterate again
+        return PrepEvent()
+    
+
+
+
+
+
 
 
 # draw_all_possible_flows(SchedulingAgent, filename="scheduling_agent_flow.html")
