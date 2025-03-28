@@ -46,6 +46,45 @@ doctor_tool = QueryEngineTool.from_defaults(
     )
 
 # Setup scheduling tool
+import datetime
+import csv
+
+def schedule_appointment(patient_name:str, 
+                         doctor_name:str, 
+                         scheduling_comments:str) -> bool :
+    """
+    This function is used to schedule a doctor appointment. It takes 3 inputs
+    patient_name : The name of the patient for who the appointment is required.
+    doctor_name : The name of the doctor to setup the appointment with.
+    scheduling_comments: Additional information on requested date, time etc. for the appointment
+
+    The function returns True if the appointment setup is successful. False otherwise.
+    """
+
+    #Capture current date and month
+    requested_date = datetime.datetime.now().strftime("%b-%d")
+
+    #Capture appointment details
+    appointment_details = [requested_date,
+                           patient_name,
+                           doctor_name,
+                           scheduling_comments
+                          ]
+
+    with open("data/Doctor appointment requests.csv","a",newline="") as appts:
+        writer = csv.writer(appts)
+        writer.writerow(appointment_details)
+        return True
+    
+    #if otherwise.
+    return False
+
+#test code
+#print(schedule_appointment("Tim Jones","Jack Smith","Monday afternoons"))
+
+#Create a function tool for appointments
+from llama_index.core.tools import FunctionTool
+schedule_appointment_tool = FunctionTool.from_defaults(fn=schedule_appointment)
 
 
 # Setup custom events
